@@ -33,11 +33,11 @@ object Form1: TForm1
   end
   object FDConnection1: TFDConnection
     Params.Strings = (
-      'DriverID=IB'
-      'Database=C:\Sistemas\NESTOR\MOBI.GDB'
-      'Password=PARCERIA'
-      'Server=LOCALHOST'
-      'User_Name=SYSDBA')
+      'Server=HESTIA\SQLSERVERTHEOS'
+      'Database=DIOC_OSASCO_8209'
+      'User_Name=sa'
+      'Password=sys@36911'
+      'DriverID=MSSQL')
     Connected = True
     LoginPrompt = False
     Left = 304
@@ -48,8 +48,8 @@ object Form1: TForm1
     Left = 400
     Top = 8
   end
-  object FDPhysIBDriverLink1: TFDPhysIBDriverLink
-    Left = 208
+  object FDPhysMSSQLDriverLink1: TFDPhysMSSQLDriverLink
+    Left = 216
     Top = 16
   end
 end

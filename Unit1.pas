@@ -9,7 +9,8 @@ uses
   FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf,
   FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async,
   FireDAC.Phys, FireDAC.Phys.IB, FireDAC.Phys.IBDef, FireDAC.VCLUI.Wait,
-  FireDAC.Comp.UI, Data.DB, FireDAC.Comp.Client, FireDAC.Phys.IBBase, FireDAC.Dapt;
+  FireDAC.Comp.UI, Data.DB, FireDAC.Comp.Client, FireDAC.Phys.IBBase, FireDAC.Dapt,
+  FireDAC.Phys.MSSQL, FireDAC.Phys.MSSQLDef, FireDAC.Phys.ODBCBase;
 
 type
   TForm1 = class(TForm)
@@ -17,7 +18,7 @@ type
     Memo1: TMemo;
     FDConnection1: TFDConnection;
     FDGUIxWaitCursor1: TFDGUIxWaitCursor;
-    FDPhysIBDriverLink1: TFDPhysIBDriverLink;
+    FDPhysMSSQLDriverLink1: TFDPhysMSSQLDriverLink;
     procedure Button1Click(Sender: TObject);
   private
     { Private declarations }
@@ -25,82 +26,107 @@ type
     { Public declarations }
   end;
 
-type
-  TReflexao = class
-  public
-    class procedure ListComponentProperties(Component: Tpersistent;
-      Strings: TStrings); static;
-  end;
 
-type
-  TPropF = class(TPersistent)
+type TPessoa = class(Tpersistent)
   private
-    FCodigo: Integer;
-    FProprietario: String;
-    procedure SetCodigo(const Value: Integer);
-    procedure SetProprietario(const Value: String);
+    FId: Integer;
+    FNome: String;
+    FDataAniversario: TDateTime;
+    procedure SetId(const Value: Integer);
+    procedure SetNome(const Value: String);
+    procedure SetDataAniversario(const Value: TDateTime);
 
   published
-    property Proprietario: String read FProprietario write SetProprietario;
-    property Codigo: Integer read FCodigo write SetCodigo;
+    property Id: Integer read FId write SetId;
+    property Nome:String read FNome write SetNome;
+    property DataAniversario: TDateTime read FDataAniversario write SetDataAniversario;
+
+end;
+
+  TFuncionario_Basico = class(TPersistent)
+
+    private
+      FId: Integer;
+      FNome: String;
+      FMatricula: String;
+    published
+      property Id: Integer read FId write FId;
+      property Nome_Funcionario: String read FNome write FNome;
+      property Matricula: String read FMatricula write FMatricula;
 
   end;
+
+
+
+type Tpessoas = Class(Tpessoa);
+
 var
   Form1: TForm1;
 
 implementation
 
 {$R *.dfm}
-class procedure TReflexao.ListComponentProperties(Component: Tpersistent; Strings: TStrings);
-var
-  Count, Size, I: Integer;
-  List: PPropList;
-  PropInfo: PPropInfo;
-  PropOrEvent, PropValue: string;
-begin
-  Count := GetPropList(Component.ClassInfo, tkAny, nil);
-  Size  := Count * SizeOf(Pointer);
-  GetMem(List, Size);
-  try
-    Count := GetPropList(Component.ClassInfo, tkAny, List);
-    for I := 0 to Count - 1 do
-    begin
-      PropInfo := List^[I];
-      if not (PropInfo^.PropType^.Kind in tkMethods) then
-      begin
-        PropValue := VarToStr(GetPropValue(Component, PropInfo^.Name));
-        Strings.Add(Format('%s = %s', [ PropInfo^.Name, PropValue]));
-      end;
-    end;
-  finally
-    FreeMem(List);
-  end;
-end;
 
 procedure TForm1.Button1Click(Sender: TObject);
   var Lista: TObjectList;
     prop: Pointer;
+    pessoa: Tpessoas;
+    busca: BuscaDados;
+    funcionario : TFuncionario_Basico;
 begin
   // TReflexao.ListComponentProperties(self, Memo1.Lines);
-  Lista :=  BuscaDados.ListaEntidade(TPropF, FDConnection1);
-  for prop in lista do
+  FrameWorkEntidade := TEntidadeFramework.Create(FDConnection1);
+//  Lista :=  BuscaDados.ListaEntidade(TPessoas);
+//  for prop in lista do
+//  begin
+//    pessoa := prop;
+//    //TReflexao.ListComponentProperties(prop,Memo1.Lines);
+//    memo1.Lines.Add(pessoa.Nome);
+//
+//  end;
+//  pessoa.nome := 'teste';
+//  FrameWorkEntidade.Salvar(pessoa, tpessoas);
+
+
+//  lista := BuscaDados.ListaEntidade(TFuncionario_basico);
+//  for funcionario in lista do
+//  begin
+//    memo1.Lines.add(Format('Id: %s Nome:%s', [funcionario.matricula, funcionario.Nome_Funcionario]));
+//  end;
+//  lista.free;
+
+
+  busca := BuscaDados.Create('select Id, nome_funcionario as nome from folha.funcionario_basico');
+  lista := busca.List(TPessoa);
+  for pessoa in lista do
   begin
-    TReflexao.ListComponentProperties(prop,Memo1.Lines);
+    memo1.Lines.add(Format('Id: %s Nome:%s', [pessoa.Id.ToString, pessoa.Nome]));
   end;
-
-
+  busca.Free;
+  lista.free;
 end;
 
-{ TPropF }
 
-procedure TPropF.SetCodigo(const Value: Integer);
+
+{ TPessoa }
+
+procedure TPessoa.SetDataAniversario(const Value: TDateTime);
 begin
-  FCodigo := Value;
+  FDataAniversario := Value;
 end;
 
-procedure TPropF.SetProprietario(const Value: String);
+procedure TPessoa.SetId(const Value: Integer);
 begin
-  FProprietario := Value;
+  FId := Value;
 end;
+
+procedure TPessoa.SetNome(const Value: String);
+begin
+  FNome := Value;
+end;
+
+
+initialization
+  ReportMemoryLeaksOnShutdown := true;
 
 end.

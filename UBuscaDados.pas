@@ -3,48 +3,125 @@ unit UBuscaDados;
 interface
 
 uses DB, Classes, StrUtils, TypInfo, Variants, SysUtils, Contnrs, FireDac.Comp.Client;
+
+type ArrConst = array of variant;
+
+type IEntidadeFramework = Interface
+
+    function Dset(sql: String): TDataSet;
+    function Salvar(Entidade: TPersistent; Tipo: TPersistentClass): integer;
+
+End;
+
+  type TEntidadeFramework = class(TInterfacedObject, IEntidadeFramework)
+
+  private
+    _Connection: TFDConnection;
+    _Query: TFDQuery;
+  public
+    constructor Create(Conexao: TFDConnection);
+    function Dset(sql: String): TDataSet;
+    function Salvar(Entidade: TPersistent; Tipo: TPersistentClass): Integer;
+    destructor Destroy; override;
+  end;
+
+
   type
     BuscaDados = class
     private
-      Query: TFDQuery;
-
-
+      Query: TDataSet;
     public
-      constructor Create(sql: String;Conexao: TFDConnection);
-      destructor Destroy;
-      public function DataSet: TFDQuery;
+      constructor Create(sql: String);
+      destructor Destroy; override;
+      public function DataSet: TDataSet;
       public function AsString(campo: String): string;
       public procedure Propriedades(entidade: TPersistent; ListaString:
          TStrings);
       public function List(Entidade: TPersistentClass): TObjectList;
 
-      public class function ListaEntidade(Entidade: TPersistentClass; Conexao: TFDConnection):
+      public class function ListaEntidade(Entidade: TPersistentClass):
         TObjectList; overload;
       public class function ListaEntidade(Entidade: TPersistentClass;
-        Conexao: TFDConnection;
-        Restricao: String): TObjectList; overload;
 
+        Restricao: String): TObjectList; overload;
   end;
 
+  function ParametrosUpdate(Entidade: Tpersistent; Tipo: TPersistentClass; out ID: integer): String;
+  function ParametrosInsert(Entidade: Tpersistent; Tipo: TPersistentClass): String;
+
+  var
+    FrameWorkEntidade: IEntidadeFramework;
+
 implementation
+
+
+
+function ParametrosUpdate(Entidade: Tpersistent; Tipo: TPersistentClass; out ID: integer): String;
+  var PosicaoCampoQuery: integer;
+    PosicaoPropriedadeEntidade: integer;
+    Count, Size, I: Integer;
+    List: PPropList;
+    PropInfo: PPropInfo;
+    NovaEntidade: TPersistent;
+    Valores: String;
+    NomeID: String;
+    StrList: TStringList;
+begin
+  NomeID := 'ID';
+  Valores :='';
+  NovaEntidade := Entidade.Create;
+  strList := TStringList.Create;
+  Count := GetPropList(NovaEntidade.ClassInfo, tkAny, nil);
+  Size  := Count * SizeOf(Pointer);
+  GetMem(List, Size);
+  try
+    Count := GetPropList(NovaEntidade.ClassInfo, tkAny, List);
+    for I := 0 to Count - 1 do
+    begin
+      PropInfo := List^[I];
+      if not (PropInfo^.PropType^.Kind in tkMethods) then
+      begin
+        if (UpperCase( PropInfo^.Name ) = NomeID) then
+        begin
+          id := GetPropValue(NovaEntidade, PropInfo^.Name);
+          continue;
+        end;
+        try
+          if (PropInfo^.PropType^.Kind = tkUnicodeString) then
+            StrList.Add(PropInfo^.Name+'='''+GetPropValue(NovaEntidade, PropInfo^.Name)+'''');
+        except
+
+        end;
+
+        result := strlist.DelimitedText;
+
+        //PropValue := VarToStr(GetPropValue(Component, PropInfo^.Name));
+//        if UpperCase(PropInfo^.Name) = UpperCase(Query.Fields[PosicaoCampoQuery].FieldName)  then
+//          SetPropValue(NovaEntidade, PropInfo^.Name, Query.Fields[
+//             PosicaoCampoQuery].Value)
+      end;
+    end;
+  finally
+    FreeMem(List);
+  end;
+end;
+function ParametrosInsert(Entidade: Tpersistent; Tipo: TPersistentClass): String;
+begin
+
+end;
 
 function BuscaDados.AsString(campo: String): string;
 begin
   result := Query.FieldByName(campo).AsString;
 end;
 
-constructor BuscaDados.Create(sql: String; Conexao: TFDConnection);
+constructor BuscaDados.Create(sql: String);
 begin
-  if not Assigned(Query) then
-    query := TFDQuery.Create(nil);
 
-  Query.Connection := Conexao;
-
-  Query.SQL.Text := sql;
-  Query.Open;
+  Query := FrameWorkEntidade.Dset(sql);
 end;
 
-function BuscaDados.DataSet: TFDQuery;
+function BuscaDados.DataSet: TDataset;
 begin
   result := Query;
 end;
@@ -107,10 +184,13 @@ begin
           PropInfo := List^[I];
           if not (PropInfo^.PropType^.Kind in tkMethods) then
           begin
-            //PropValue := VarToStr(GetPropValue(Component, PropInfo^.Name));
-            if UpperCase(PropInfo^.Name) = UpperCase(Query.Fields[PosicaoCampoQuery].FieldName)  then
-              SetPropValue(NovaEntidade, PropInfo^.Name, Query.Fields[
-                 PosicaoCampoQuery].Value)
+            try
+              if UpperCase(PropInfo^.Name) = UpperCase(Query.Fields[PosicaoCampoQuery].FieldName)  then
+                SetPropValue(NovaEntidade, PropInfo^.Name, Query.Fields[
+                   PosicaoCampoQuery].Value)
+            except
+
+            end;
           end;
         end;
       finally
@@ -123,7 +203,7 @@ begin
 
 end;
 
-class function BuscaDados.ListaEntidade(Entidade: TPersistentClass;Conexao: TFDConnection): TObjectList;
+class function BuscaDados.ListaEntidade(Entidade: TPersistentClass): TObjectList;
   var
     Dados : BuscaDados;
     sql : String;
@@ -131,13 +211,13 @@ class function BuscaDados.ListaEntidade(Entidade: TPersistentClass;Conexao: TFDC
 
 begin
   NomeClasse := Entidade.ClassName;
-  sql := 'select * from '+ copy(NomeClasse,2, length(NomeClasse));
-  Dados := BuscaDados.Create(sql, Conexao);
+  sql := 'select * from folha.'+ copy(NomeClasse,2, length(NomeClasse));
+  Dados := BuscaDados.Create(sql);
   Result := Dados.List(entidade);
   Dados.Destroy;
 end;
 
-class function BuscaDados.ListaEntidade(Entidade: TPersistentClass;Conexao: TFDConnection; Restricao: String):
+class function BuscaDados.ListaEntidade(Entidade: TPersistentClass;Restricao: String):
 TObjectList;
   var
     Dados : BuscaDados;
@@ -148,7 +228,7 @@ begin
   NomeClasse := Entidade.ClassName;
   sql := 'select * from '+ copy(NomeClasse,2, length(NomeClasse)) + ' '+
      restricao;
-  Dados := BuscaDados.Create(sql, Conexao);
+  Dados := BuscaDados.Create(sql);
   Result := Dados.List(entidade);
   Dados.Destroy;
 end;
@@ -158,6 +238,50 @@ procedure BuscaDados.Propriedades(entidade: TPersistent;
   ListaString: TStrings);
 begin
   ListComponentProperties(entidade, ListaString);
+end;
+
+
+{ TEntidadeFramework }
+
+constructor TEntidadeFramework.Create(Conexao: TFDConnection);
+begin
+  _Connection := conexao;
+  _query := TFDQuery.Create(nil);
+  _query.Connection := conexao;
+
+end;
+
+destructor TEntidadeFramework.Destroy;
+begin
+  _query.Free;
+//  _Connection.Free;
+  inherited;
+end;
+
+function TEntidadeFramework.Dset(sql: String): TDataSet;
+  var qry: TFDQuery;
+begin
+  qry := TFDQuery.Create(nil);
+  qry.Connection := _Connection;
+  qry.Open(sql);
+  result := qry;
+end;
+
+function TEntidadeFramework.Salvar(Entidade: TPersistent;
+  Tipo: TPersistentClass): Integer;
+  var sqlExecute: String;
+    nomeClasse: String;
+    parametros, where: String;
+    id: integer;
+begin
+  nomeClasse := copy(tipo.ClassName,2,100);
+
+  parametros := ParametrosUpdate(Entidade, Tipo, id);
+  where := ' id = '+InttoStr(id);
+  sqlExecute := Format('update %s set %s where %s', [nomeClasse, parametros, where]);
+
+  _Query.SQL.Text := sqlExecute;
+  _Query.ExecSQL;
 end;
 
 end.
